@@ -67,9 +67,20 @@
             background: rgba(255, 255, 255, 0.9);
             box-shadow: 0 0 15px rgba(0, 0, 0, 0.9);
             border-radius: 5px;
-            width: 250px;
-            height: 200px;
+            width: 280px;
+            height: 150px;
             overflow: scroll;
+        }
+
+        th,
+        td {
+            border: solid 1px;
+        }
+
+        table {
+            font-size: 8pt;
+            width: 250px;
+            border-collapse: collapse;
         }
     </style>
 </head>
@@ -357,8 +368,31 @@
                     'text-halo-width': 1
                 }
             });
-
         })
+
+        map.on('click', 'bus-stop-points-1', (e) => {
+            var lng = e.lngLat.lng;
+            var lat = e.lngLat.lat;
+            var bsu_stop_name = e.features[0].properties['P11_001'];
+            var bsu_jigyosya_name = e.features[0].properties['P11_002'];
+            var bsu_keito_name = e.features[0].properties['P11_003_01'];
+
+            new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(
+                    // 表形式
+                    '<table>' +
+                    '<tr>' + '<th>' + '項目' + '</th> ' + '<th>' + '内容' + '</th> ' + '</tr>' +
+                    '<tr>' + '<td>' + 'バス停名' + '</td> ' + '<td>' + bsu_stop_name + '</td> ' + '</tr>' +
+                    '<tr>' + '<td>' + 'バス事業者名' + '</td> ' + '<td>' + bsu_jigyosya_name + '</td> ' + '</tr>' +
+                    '<tr>' + '<td>' + 'バス系統' + '</td> ' + '<td>' + bsu_keito_name + '</td> ' + '</tr>' +
+                    '<table>'
+                    + '座標: ' + lat.toFixed(7) + "," + lng.toFixed(7) + '<br>※クリック位置の座標<br>'
+                    + '<a href=\https://www.google.com/maps?q=' + lat + "," + lng + "&hl=ja' target='_blank'>🌎Google Maps</a>" + ' '
+                    + '<a href=\https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + lat + "," + lng + "&hl=ja' target='_blank'>📷Street View</a>"
+                )
+                .addTo(map);
+        });
     </script>
 
 </body>
