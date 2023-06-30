@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>バスマップ（国土数値情報）</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <script src='https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js'></script>
+    <link href='https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css' rel='stylesheet' />
+    <script src="https://unpkg.com/pmtiles@2.7.0/dist/index.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .map-overlay {
+            font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            position: absolute;
+            width: auto;
+            top: 0;
+            left: 0;
+            padding: 10px;
+        }
+
+        .map-overlay .map-overlay-inner {
+            background-color: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 5px;
+        }
+
+        .map-overlay h3 {
+            line-height: 12px;
+            display: block;
+            margin: 0 0 10px;
+        }
+
+        .map-overlay .legend .bar {
+            height: 10px;
+            width: 100%;
+            background: linear-gradient(to right, #CCFFCC, #00ff00);
+        }
+
+        .map-overlay input {
+            background-color: transparent;
+            display: inline-block;
+            width: 100%;
+            position: relative;
+            margin: 0;
+            cursor: ew-resize;
+        }
+
+        .maplibregl-popup .maplibregl-popup-content {
+            padding: 8px 10px;
+            font: 12px/14px Arial, Helvetica, sans-serif;
+            color: black;
+            background: white;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.9);
+            border-radius: 5px;
+            width: 250px;
+            height: 200px;
+            overflow: scroll;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        let protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol("pmtiles", protocol.tile);
+
+        // bus_route
+        let PM_BUS_ROUTE_URL = "https://xs489works.xsrv.jp/pmtiles-data/ksj/N07_22_bus_route.pmtiles";
+
+        // bus_stop
+        let PM_BUS_STOP_URL = "https://xs489works.xsrv.jp/pmtiles-data/ksj/P11_22_bus_stop.pmtiles";
+
+        // PLATEAU
+        // let PM_PLATEAU_URL = "https://xs489works.xsrv.jp/pmtiles-data/plateau/PLATEAU_2020_LOD1.pmtiles";
+
+        let PMTILES_DID_URL = "https://xs489works.xsrv.jp/pmtiles-data/r2DID/2020_did_ddsw_01-47_JGD2011.pmtiles";
+
+        const pr = new pmtiles.PMTiles(PM_BUS_ROUTE_URL)
+        pr.getMetadata().then((res) => console.log(res));
+
+        const ps = new pmtiles.PMTiles(PM_BUS_STOP_URL)
+        ps.getMetadata().then((res) => console.log(res));
+
+        /*
+        const pp = new pmtiles.PMTiles(PM_PLATEAU_URL)
+        pp.getMetadata().then((res) => console.log(res));
+        */
+
+        protocol.add(pr);
+        protocol.add(ps);
+        // protocol.add(pp);
+
+        var map = new maplibregl.Map({
+            container: 'map',
+            // style: './dark.json',
+            style: './building3ddark.json',
+            // style: 'https://tile2.openstreetmap.jp/styles/osm-bright/style.json',
+            center: [139.6226196, 35.4660694],
+            zoom: 14,
+            pitch: 0,
+            bearing: 0,
+            hash: true,
+            attributionControl: false
+        })
+
+        // ズーム・回転
+        map.addControl(new maplibregl.NavigationControl());
+
+        // フルスクリーンモードのオンオフ
+        map.addControl(new maplibregl.FullscreenControl());
+
+        // 現在位置表示
+        map.addControl(new maplibregl.GeolocateControl({
+            positionOptions: {
+                enableHighAccuracy: false
+            },
+            fitBoundsOptions: { maxZoom: 18 },
+            trackUserLocation: true,
+            showUserLocation: true
+        }));
+
+        // スケール表示
+        map.addControl(new maplibregl.ScaleControl({
+            maxWidth: 200,
+            unit: 'metric'
+        }));
+
+        // Attributionを折りたたみ表示
+        map.addControl(new maplibregl.AttributionControl({
+            compact: true,
+            customAttribution: '（<a href="https://twitter.com/syanseto" target="_blank">Twitter</a> | <a href="https://github.com/shi-works/gsi-terrain-dem-on-maplibre-gl-js" target="_blank">Github</a>） '
+        }));
+
+        map.on('load', () => {
+            // 人口集中地区ベクトルタイル
+            map.addSource("did", {
+                type: "vector",
+                url: "pmtiles://" + PMTILES_DID_URL,
+                attribution: '<a href="https://www.e-stat.go.jp/gis">政府統計の総合窓口[e-Stat] 人口集中地区（2020年）</a>'
+            });
+
+            // 人口集中地区ポリゴンレイヤ
+            map.addLayer({
+                "id": "did-polygon",
+                "source": "did",
+                "source-layer": "2020_did_ddsw_0147_JGD2011fgb",
+                "type": "fill",
+                "paint": {
+                    'fill-color': 'rgb(255, 191, 0)',
+                    'fill-opacity': 0.2
+                }
+            });
+
+            /*
+            // PLATEAUベクトルタイル
+            map.addSource("pmtiles-lod1-building", {
+                type: "vector",
+                url: "pmtiles://" + PM_PLATEAU_URL,
+                attribution: '<a href="https://www.geospatial.jp/ckan/dataset/plateau">3D都市モデルPLATEAU 建築物データ（国土交通省）を加工して作成</a>',
+            });
+
+            // PLATEAUポリゴンレイヤ
+            map.addLayer({
+                'id': 'lod1-building',
+                'source': 'pmtiles-lod1-building',
+                'source-layer': 'PLATEAU_2020_LOD1fgb',
+                "minzoom": 12,
+                "maxzoom": 23,
+                'layout': {
+                    'visibility': 'visible',
+                },
+                'type': 'fill-extrusion',
+                'paint': {
+                    "fill-extrusion-color": "#aaa",
+                    "fill-extrusion-opacity": 0.5,
+                    "fill-extrusion-height": ["get", "bldg_measuredHeight"]
+                }
+            });
+            */
+
+            // バスルートベクトルタイル
+            map.addSource("pmtiles-bus-route", {
+                type: "vector",
+                url: "pmtiles://" + PM_BUS_ROUTE_URL,
+                attribution: '<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N07-v2_0.html">国土数値情報 バスルートデータ（令和4年度）を加工して作成</a>',
+            });
+
+            // バスルートラインレイヤ
+            map.addLayer({
+                "id": "bus-route-lines-1",
+                "type": "line",
+                "source": "pmtiles-bus-route",
+                "source-layer": "N07_22_bus_route",
+                minzoom: 1,
+                maxzoom: 23,
+                /*
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                */
+                'paint': {
+                    'line-color': 'rgba(0, 152, 0, 0.5)',
+                    'line-width': 12,
+                    'line-blur': 5
+                }
+            });
+
+            // バスルートラインレイヤ
+            map.addLayer({
+                "id": "bus-route-lines-2",
+                "type": "line",
+                "source": "pmtiles-bus-route",
+                "source-layer": "N07_22_bus_route",
+                minzoom: 1,
+                maxzoom: 23,
+                /*
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                */
+                'paint': {
+                    'line-color': 'rgba(0, 255, 0, 0.5)',
+                    'line-width': 6,
+                    'line-blur': 2.5
+                }
+            });
+
+            // バスルートラインレイヤ
+            map.addLayer({
+                "id": "bus-route-lines-3",
+                "type": "line",
+                "source": "pmtiles-bus-route",
+                "source-layer": "N07_22_bus_route",
+                minzoom: 1,
+                maxzoom: 23,
+                /*
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                */
+                'paint': {
+                    'line-color': 'rgba(255, 255, 255, 1)',
+                    'line-width': 2,
+                }
+            });
+
+            // バス停留所ベクトルタイル
+            map.addSource("pmtiles-bus-stop", {
+                type: "vector",
+                url: "pmtiles://" + PM_BUS_STOP_URL,
+                attribution: '<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P11-v3_0.html">国土数値情報 バス停留所データ（令和4年度）を加工して作成</a>',
+            });
+
+            /*
+            // バス停留所ポイントレイヤ
+            map.addLayer({
+                'id': 'bus-stop-points-1',
+                'type': 'circle',
+                'source': 'pmtiles-bus-stop',
+                "source-layer": "P11_22_bus_stop",
+                minzoom: 12,
+                maxzoom: 23,
+                'paint': {
+                    'circle-color': 'rgba(0, 152, 0, 1)',
+                    'circle-radius': 40,
+                    'circle-blur': 1.5,
+                    'circle-opacity': 0.4
+                }
+            });
+
+            // バス停留所ポイントレイヤ
+            map.addLayer({
+                'id': 'bus-stop-points-2',
+                'type': 'circle',
+                'source': 'pmtiles-bus-stop',
+                "source-layer": "P11_22_bus_stop",
+                minzoom: 12,
+                maxzoom: 23,
+                'paint': {
+                    'circle-color': 'rgba(0, 255, 0, 1)',
+                    'circle-radius': 20,
+                    'circle-blur': 0.75,
+                    'circle-opacity': 0.4
+                }
+            });
+            */
+
+            // バス停留所ポイントレイヤ
+            map.addLayer({
+                'id': 'bus-stop-points-1',
+                'type': 'circle',
+                'source': 'pmtiles-bus-stop',
+                "source-layer": "P11_22_bus_stop",
+                minzoom: 12,
+                maxzoom: 23,
+                'paint': {
+                    'circle-color': 'rgba(0, 203, 0, 1)',
+                    'circle-radius': 6,
+                    'circle-blur': 0,
+                    'circle-opacity': 1
+                }
+            });
+
+            // バス停留所ポイントレイヤ
+            map.addLayer({
+                'id': 'bus-stop-points-2',
+                'type': 'circle',
+                'source': 'pmtiles-bus-stop',
+                "source-layer": "P11_22_bus_stop",
+                minzoom: 12,
+                maxzoom: 23,
+                'paint': {
+                    'circle-color': 'rgba(255, 255, 255, 1)',
+                    'circle-radius': 3,
+                    'circle-blur': 0,
+                    'circle-opacity': 1
+                }
+            });
+
+            // バス停留所ラベルレイヤ
+            map.addLayer({
+                'id': 'bus-stop-label',
+                'type': 'symbol',
+                'source': 'pmtiles-bus-stop',
+                "source-layer": "P11_22_bus_stop",
+                'minzoom': 14,
+                'maxzoom': 23,
+                'layout': {
+                    'text-field': ['get', 'P11_001'],
+                    'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+                    'text-size': 10,
+                    'text-offset': [1, -1],
+                    'text-allow-overlap': true
+                },
+                'paint': {
+                    'text-color': 'rgba(0, 0, 0, 1)',
+                    'text-halo-color': 'rgba(255, 255, 255,1)',
+                    'text-halo-width': 1
+                }
+            });
+
+        })
+    </script>
+
+</body>
+
+</html>
